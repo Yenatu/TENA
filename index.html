@@ -8,6 +8,23 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <link rel="manifest" href="manifest.json">
+    <style>
+        body.dark-theme { background: #0f172a !important; color: #e2e8f0 !important; }
+        body.dark-theme .bg-white { background: #1e293b !important; color: #e2e8f0 !important; }
+        body.dark-theme .bg-slate-50 { background: #273449 !important; }
+        body.dark-theme .bg-slate-100 { background: #172033 !important; }
+        body.dark-theme .text-slate-800 { color: #f8fafc !important; }
+        body.dark-theme .text-slate-600,
+        body.dark-theme .text-slate-500 { color: #cbd5e1 !important; }
+        body.dark-theme .border,
+        body.dark-theme .border-slate-100,
+        body.dark-theme .border-slate-300 { border-color: #475569 !important; }
+        body.dark-theme input,
+        body.dark-theme select { background: #273449; color: #f8fafc; }
+        body.dark-theme thead { background: #273449 !important; }
+        body.dark-theme .divide-y > :not([hidden]) ~ :not([hidden]) { border-color: #475569 !important; }
+        body { transition: background-color 180ms ease, color 180ms ease; }
+    </style>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Dexie.js for Offline Database -->
@@ -16,7 +33,7 @@
 <body class="bg-slate-100 min-h-screen text-slate-800 flex flex-col">
 
     <!-- Navigation Header -->
-    <header class="bg-amber-700 text-white shadow-md">
+    <header class="sticky top-0 z-10 bg-amber-700 text-white shadow-md">
         <div class="max-w-6xl mx-auto p-4 flex flex-col md:flex-row justify-between items-center gap-4">
             <h1 class="text-2xl font-bold tracking-wide">ጤና ቁርስ ቤት</h1>
             
@@ -24,11 +41,10 @@
             <nav class="w-full md:w-auto overflow-x-auto flex gap-2 text-sm font-medium pb-1">
                 <button onclick="switchTab('home')" class="px-3 py-1.5 rounded hover:bg-amber-800 transition">Home</button>
                 <button onclick="switchTab('menu')" class="px-3 py-1.5 rounded hover:bg-amber-800 transition">Menu</button>
-                <button onclick="switchTab('waiter1')" class="px-3 py-1.5 rounded bg-amber-900 hover:bg-amber-800 transition">Waiter 1</button>
-                <button onclick="switchTab('waiter2')" class="px-3 py-1.5 rounded bg-amber-900 hover:bg-amber-800 transition">Waiter 2</button>
-                <button onclick="switchTab('chef')" class="px-3 py-1.5 rounded bg-amber-900 hover:bg-amber-800 transition">Chef</button>
+                <button onclick="switchTab('cashier')" class="px-3 py-1.5 rounded bg-amber-900 hover:bg-amber-800 transition">Cashier</button>
                 <button onclick="switchTab('admin')" class="px-3 py-1.5 rounded bg-red-800 hover:bg-red-700 transition">Admin</button>
                 <button id="install-app-button" onclick="installApp()" class="hidden px-3 py-1.5 rounded bg-emerald-600 hover:bg-emerald-700 transition">Install App</button>
+                <button id="theme-toggle" onclick="toggleTheme()" class="px-3 py-1.5 rounded bg-slate-900 hover:bg-slate-700 transition" aria-label="Switch theme">Night</button>
                 <button onclick="switchTab('about')" class="px-3 py-1.5 rounded hover:bg-amber-800 transition">About</button>
                 <button onclick="switchTab('contact')" class="px-3 py-1.5 rounded hover:bg-amber-800 transition">Contact</button>
             </nav>
@@ -53,22 +69,28 @@
             <div id="menu-list" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
         </section>
 
-        <!-- WAITER 1 SECTION -->
-        <section id="sec-waiter1" class="tab-content hidden">
-            <h2 class="text-2xl font-bold mb-2">Waiter 1: Take Order</h2>
+        <!-- CASHIER SECTION -->
+        <section id="sec-cashier" class="tab-content hidden">
+            <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2 mb-4">
+                <div>
+                    <h2 class="text-2xl font-bold">Cashier: New Order</h2>
+                    <p class="text-slate-500">Add items, check the total, and save the order for the admin.</p>
+                </div>
+                <button onclick="clearCart()" class="border border-slate-300 px-4 py-2 rounded-lg font-semibold hover:bg-white">Clear order</button>
+            </div>
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <!-- Select Menu Items -->
                 <div class="lg:col-span-2 bg-white p-4 rounded-xl shadow-sm">
                     <h3 class="font-semibold text-lg mb-3">Select Items</h3>
-                    <div id="waiter-menu-list" class="grid grid-cols-2 sm:grid-cols-3 gap-3"></div>
+                    <div id="cashier-menu-list" class="grid grid-cols-2 sm:grid-cols-3 gap-3"></div>
                 </div>
                 <!-- Cart & Table Input -->
                 <div class="bg-white p-4 rounded-xl shadow-sm flex flex-col justify-between">
                     <div>
                         <h3 class="font-semibold text-lg mb-3">Order Summary</h3>
                         <div class="mb-4">
-                            <label class="block text-sm font-medium mb-1">Table Number:</label>
-                            <input type="number" id="w1-table" class="w-full border rounded p-2" placeholder="e.g. 5" min="1">
+                            <label class="block text-sm font-medium mb-1">Table / customer:</label>
+                            <input type="text" id="cashier-table" class="w-full border rounded p-2" placeholder="e.g. Table 5" maxlength="40">
                         </div>
                         <ul id="w1-cart-items" class="divide-y text-sm mb-4"></ul>
                     </div>
@@ -77,22 +99,10 @@
                             <span>Total:</span>
                             <span id="w1-cart-total">0 ETB</span>
                         </div>
-                        <button onclick="sendOrderToWaiter2()" class="w-full bg-emerald-600 text-white py-2.5 rounded-lg font-semibold hover:bg-emerald-700 transition">Send Order to Waiter 2</button>
+                        <button onclick="saveCashierOrder()" class="w-full bg-emerald-600 text-white py-2.5 rounded-lg font-semibold hover:bg-emerald-700 transition">Save order</button>
                     </div>
                 </div>
             </div>
-        </section>
-
-        <!-- WAITER 2 SECTION -->
-        <section id="sec-waiter2" class="tab-content hidden">
-            <h2 class="text-2xl font-bold mb-4">Waiter 2: Review & Send to Kitchen</h2>
-            <div id="w2-orders-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
-        </section>
-
-        <!-- CHEF SECTION -->
-        <section id="sec-chef" class="tab-content hidden">
-            <h2 class="text-2xl font-bold mb-4">Chef Display System (Kitchen)</h2>
-            <div id="chef-orders-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
         </section>
 
         <!-- ADMIN SECTION -->
@@ -138,14 +148,40 @@
                 </div>
             </div>
 
-            <!-- Manage Menu Form -->
+            <!-- Calculator -->
             <div class="bg-white p-6 rounded-xl shadow-sm mb-6">
-                <h3 class="font-bold text-lg mb-4">Add New Menu Item</h3>
-                <form id="add-menu-form" onsubmit="addNewMenuItem(event)" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <input type="text" id="item-name" placeholder="Item Name (e.g., Chechebsa)" class="border p-2 rounded" required>
-                    <input type="number" id="item-price" placeholder="Price in Birr" class="border p-2 rounded" required>
-                    <button type="submit" class="bg-amber-700 text-white font-semibold py-2 rounded hover:bg-amber-800">Add Item</button>
+                <h3 class="font-bold text-lg mb-4">Quick Calculator</h3>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <input type="number" id="calculator-first" class="border p-2 rounded" placeholder="First amount" oninput="calculateAmount()">
+                    <select id="calculator-operation" class="border p-2 rounded" onchange="calculateAmount()">
+                        <option value="+">Add</option>
+                        <option value="-">Subtract</option>
+                        <option value="*">Multiply</option>
+                        <option value="/">Divide</option>
+                    </select>
+                    <input type="number" id="calculator-second" class="border p-2 rounded" placeholder="Second amount" oninput="calculateAmount()">
+                    <div id="calculator-result" class="bg-amber-50 border border-amber-200 rounded p-2 font-bold text-amber-800">0 Birr</div>
+                </div>
+            </div>
+
+            <!-- Manage Menu CRUD -->
+            <div class="bg-white p-6 rounded-xl shadow-sm mb-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-bold text-lg">Menu Management</h3>
+                    <span class="text-sm text-slate-500">Add, edit, or delete items</span>
+                </div>
+                <form id="add-menu-form" onsubmit="addNewMenuItem(event)" class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
+                    <input type="text" id="item-name" placeholder="Item name" class="border p-2 rounded" required>
+                    <input type="number" id="item-price" placeholder="Price in Birr" class="border p-2 rounded" min="0" step="0.01" required>
+                    <input type="file" id="item-image" accept="image/*" class="border p-2 rounded text-sm">
+                    <button type="submit" class="bg-amber-700 text-white font-semibold py-2 rounded hover:bg-amber-800 sm:col-span-2">Add item</button>
                 </form>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-slate-100 border-b"><tr><th class="p-2">Picture</th><th class="p-2">Item</th><th class="p-2">Price</th><th class="p-2">Actions</th></tr></thead>
+                        <tbody id="admin-menu-table" class="divide-y"></tbody>
+                    </table>
+                </div>
             </div>
 
             <!-- Orders Audit Log -->
@@ -160,6 +196,7 @@
                                 <th class="p-2">Items</th>
                                 <th class="p-2">Total (ETB)</th>
                                 <th class="p-2">Status</th>
+                                <th class="p-2">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="admin-orders-table" class="divide-y"></tbody>
@@ -180,9 +217,9 @@
         <section id="sec-contact" class="tab-content hidden">
             <div class="bg-white p-6 rounded-xl shadow-sm max-w-lg mx-auto">
                 <h2 class="text-2xl font-bold mb-4">አድራሻ (Contact Us)</h2>
-                <p class="mb-2"><strong>Location:</strong> Addis Ababa, Ethiopia</p>
-                <p class="mb-2"><strong>Phone:</strong> +251 900 000 000</p>
-                <p class="mb-2"><strong>Hours:</strong> Daily 6:00 AM - 12:00 PM</p>
+                <p class="mb-2"><strong>Location:</strong> Jemo, Mariam Sefer, Addis Ababa, Ethiopia</p>
+                <p class="mb-2"><strong>Phone:</strong> <a href="tel:0956102879" class="text-amber-700 font-semibold">0956102879</a></p>
+                <p class="mb-2"><strong>Hours:</strong> Every day, 12:00 PM - 5:00 AM</p>
             </div>
         </section>
 
@@ -199,6 +236,30 @@
 
         let currentCart = [];
         let deferredInstallPrompt;
+        const sampleImages = {
+            'Chechebsa (ጨጨብሳ)': 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=600&q=80',
+            'Special Ful (ፉል)': 'https://images.unsplash.com/photo-1547592180-85f173990554?w=600&q=80',
+            'Egg Firfir (እንቁላል ፍርፍር)': 'https://images.unsplash.com/photo-1525351484163-7529414344d8?w=600&q=80',
+            'Fetira with Honey (ፈቲራ በሜል)': 'https://images.unsplash.com/photo-1551183053-bf91a1d81141?w=600&q=80',
+            'Ethiopian Tea (ሻይ)': 'https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=600&q=80',
+            'Coffee (ቡና)': 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=600&q=80'
+        };
+
+        function applyTheme(theme) {
+            const isNight = theme === 'night';
+            document.body.classList.toggle('dark-theme', isNight);
+            document.getElementById('theme-toggle').innerText = isNight ? 'Sun' : 'Night';
+            document.getElementById('theme-toggle').setAttribute('aria-label', isNight ? 'Switch to light theme' : 'Switch to dark theme');
+            document.querySelector('meta[name="theme-color"]').setAttribute('content', isNight ? '#0f172a' : '#b45309');
+        }
+
+        function toggleTheme() {
+            const nextTheme = document.body.classList.contains('dark-theme') ? 'day' : 'night';
+            localStorage.setItem('tena-theme', nextTheme);
+            applyTheme(nextTheme);
+        }
+
+        applyTheme(localStorage.getItem('tena-theme') || 'day');
 
         window.addEventListener('beforeinstallprompt', (event) => {
             event.preventDefault();
@@ -222,12 +283,12 @@
         // Initial Seed Data for Menu
         db.on('populate', () => {
             db.menu.bulkAdd([
-                { name: 'Chechebsa (ጨጨብሳ)', price: 150 },
-                { name: 'Special Ful (ፉል)', price: 120 },
-                { name: 'Egg Firfir (እንቁላል ፍርፍር)', price: 140 },
-                { name: 'Fetira with Honey (ፈቲራ በሜል)', price: 160 },
-                { name: 'Ethiopian Tea (ሻይ)', price: 20 },
-                { name: 'Coffee (ቡና)', price: 30 }
+                { name: 'Chechebsa (ጨጨብሳ)', price: 150, image: sampleImages['Chechebsa (ጨጨብሳ)'] },
+                { name: 'Special Ful (ፉል)', price: 120, image: sampleImages['Special Ful (ፉል)'] },
+                { name: 'Egg Firfir (እንቁላል ፍርፍር)', price: 140, image: sampleImages['Egg Firfir (እንቁላል ፍርፍር)'] },
+                { name: 'Fetira with Honey (ፈቲራ በሜል)', price: 160, image: sampleImages['Fetira with Honey (ፈቲራ በሜል)'] },
+                { name: 'Ethiopian Tea (ሻይ)', price: 20, image: sampleImages['Ethiopian Tea (ሻይ)'] },
+                { name: 'Coffee (ቡና)', price: 30, image: sampleImages['Coffee (ቡና)'] }
             ]);
         });
 
@@ -237,9 +298,7 @@
             document.getElementById(`sec-${tabId}`).classList.remove('hidden');
 
             if (tabId === 'menu') renderPublicMenu();
-            if (tabId === 'waiter1') renderWaiter1Menu();
-            if (tabId === 'waiter2') renderWaiter2Orders();
-            if (tabId === 'chef') renderChefOrders();
+            if (tabId === 'cashier') renderCashierMenu();
             if (tabId === 'admin') renderAdminDashboard();
         }
 
@@ -248,8 +307,9 @@
             const items = await db.menu.toArray();
             const container = document.getElementById('menu-list');
             container.innerHTML = items.map(item => `
-                <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex justify-between items-center">
-                    <div>
+                <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+                    <img src="${item.image || 'icon.svg'}" alt="${item.name}" class="w-full h-36 object-cover">
+                    <div class="p-4">
                         <h4 class="font-bold text-slate-800">${item.name}</h4>
                         <p class="text-sm text-amber-700 font-semibold">${item.price} Birr</p>
                     </div>
@@ -257,14 +317,17 @@
             `).join('');
         }
 
-        // --- WAITER 1 LOGIC ---
-        async function renderWaiter1Menu() {
+        // --- CASHIER LOGIC ---
+        async function renderCashierMenu() {
             const items = await db.menu.toArray();
-            const container = document.getElementById('waiter-menu-list');
+            const container = document.getElementById('cashier-menu-list');
             container.innerHTML = items.map(item => `
-                <button onclick="addToCart('${item.name}', ${item.price})" class="bg-slate-50 border p-3 rounded-lg text-left hover:border-amber-600 transition">
+                <button onclick="addToCart('${item.name}', ${item.price})" class="bg-slate-50 border rounded-lg text-left hover:border-amber-600 transition overflow-hidden">
+                    <img src="${item.image || 'icon.svg'}" alt="${item.name}" class="w-full h-24 object-cover">
+                    <div class="p-3">
                     <p class="font-semibold text-sm">${item.name}</p>
                     <p class="text-xs text-amber-700 font-medium">${item.price} Birr</p>
+                    </div>
                 </button>
             `).join('');
             updateCartUI();
@@ -296,85 +359,45 @@
             document.getElementById('w1-cart-total').innerText = `${total} ETB`;
         }
 
-        async function sendOrderToWaiter2() {
-            const tableNo = document.getElementById('w1-table').value;
+        function clearCart() {
+            currentCart = [];
+            document.getElementById('cashier-table').value = '';
+            updateCartUI();
+        }
+
+        async function saveCashierOrder() {
+            const tableNo = document.getElementById('cashier-table').value.trim();
             if (!tableNo || currentCart.length === 0) {
-                alert('Please select items and enter a valid table number.');
+                alert('Please add items and enter a table or customer name.');
                 return;
             }
 
             const total = currentCart.reduce((sum, item) => sum + (item.price * item.qty), 0);
             
             await db.orders.add({
-                tableNo: parseInt(tableNo),
+                tableNo,
                 items: [...currentCart],
                 total: total,
-                status: 'Sent to Waiter 2',
+                status: 'Pending',
                 timestamp: new Date().toISOString()
             });
 
-            currentCart = [];
-            document.getElementById('w1-table').value = '';
-            updateCartUI();
-            alert('Order sent to Waiter 2!');
+            clearCart();
+            alert('Order saved. The admin can see it now.');
         }
 
-        // --- WAITER 2 LOGIC ---
-        async function renderWaiter2Orders() {
-            const orders = await db.orders.where('status').equals('Sent to Waiter 2').toArray();
-            const container = document.getElementById('w2-orders-list');
-            
-            if (orders.length === 0) {
-                container.innerHTML = `<p class="text-slate-500">No pending orders from Waiter 1.</p>`;
-                return;
+        function calculateAmount() {
+            const first = parseFloat(document.getElementById('calculator-first').value);
+            const second = parseFloat(document.getElementById('calculator-second').value);
+            const operation = document.getElementById('calculator-operation').value;
+            let result = 0;
+            if (!Number.isNaN(first) && !Number.isNaN(second)) {
+                if (operation === '+') result = first + second;
+                if (operation === '-') result = first - second;
+                if (operation === '*') result = first * second;
+                if (operation === '/') result = second === 0 ? 0 : first / second;
             }
-
-            container.innerHTML = orders.map(o => `
-                <div class="bg-white p-4 rounded-xl shadow-sm border border-amber-200">
-                    <div class="flex justify-between items-center border-b pb-2 mb-2">
-                        <span class="font-bold">Table #${o.tableNo}</span>
-                        <span class="text-xs text-slate-500">${o.timestamp}</span>
-                    </div>
-                    <ul class="text-sm mb-3">
-                        ${o.items.map(i => `<li>• ${i.name} x${i.qty}</li>`).join('')}
-                    </ul>
-                    <button onclick="forwardToChef(${o.id})" class="w-full bg-blue-600 text-white py-1.5 rounded text-sm font-semibold hover:bg-blue-700">Forward to Chef</button>
-                </div>
-            `).join('');
-        }
-
-        async function forwardToChef(orderId) {
-            await db.orders.update(orderId, { status: 'In Kitchen' });
-            renderWaiter2Orders();
-        }
-
-        // --- CHEF LOGIC ---
-        async function renderChefOrders() {
-            const orders = await db.orders.where('status').equals('In Kitchen').toArray();
-            const container = document.getElementById('chef-orders-list');
-
-            if (orders.length === 0) {
-                container.innerHTML = `<p class="text-slate-500">No active kitchen orders.</p>`;
-                return;
-            }
-
-            container.innerHTML = orders.map(o => `
-                <div class="bg-white p-4 rounded-xl shadow-sm border border-blue-200">
-                    <div class="flex justify-between items-center border-b pb-2 mb-2">
-                        <span class="font-bold">Table #${o.tableNo}</span>
-                        <span class="text-xs text-slate-500">${o.timestamp}</span>
-                    </div>
-                    <ul class="text-sm mb-3 font-medium">
-                        ${o.items.map(i => `<li class="text-amber-900">• ${i.name} x${i.qty}</li>`).join('')}
-                    </ul>
-                    <button onclick="completeOrder(${o.id})" class="w-full bg-emerald-600 text-white py-1.5 rounded text-sm font-semibold hover:bg-emerald-700">Mark as Ready / Served</button>
-                </div>
-            `).join('');
-        }
-
-        async function completeOrder(orderId) {
-            await db.orders.update(orderId, { status: 'Completed' });
-            renderChefOrders();
+            document.getElementById('calculator-result').innerText = `${result} Birr`;
         }
 
         // --- ADMIN DASHBOARD LOGIC ---
@@ -414,15 +437,34 @@
             `;
             document.getElementById('admin-daily-total').innerText = `${totalRevenue} ETB total`;
 
+            const menuItems = await db.menu.toArray();
+            document.getElementById('admin-menu-table').innerHTML = menuItems.map(item => `
+                <tr>
+                    <td class="p-2"><img src="${item.image || 'icon.svg'}" alt="${item.name}" class="w-12 h-12 rounded object-cover"></td>
+                    <td class="p-2 font-medium">${item.name}</td>
+                    <td class="p-2">${item.price} Birr</td>
+                    <td class="p-2 whitespace-nowrap">
+                        <button onclick="editMenuItem(${item.id})" class="text-blue-700 font-semibold mr-3">Edit</button>
+                        <button onclick="changeMenuImage(${item.id})" class="text-amber-700 font-semibold mr-3">Picture</button>
+                        <button onclick="deleteMenuItem(${item.id})" class="text-red-700 font-semibold">Delete</button>
+                    </td>
+                </tr>
+            `).join('') || `<tr><td colspan="4" class="p-3 text-slate-500">No menu items.</td></tr>`;
+
             // Render Orders Table
             const tableBody = document.getElementById('admin-orders-table');
-            tableBody.innerHTML = allOrders.map(o => `
+            tableBody.innerHTML = allOrders.sort((a, b) => b.id - a.id).map(o => `
                 <tr>
                     <td class="p-2">#${o.id}</td>
-                    <td class="p-2">Table ${o.tableNo}</td>
+                    <td class="p-2">${o.tableNo}</td>
                     <td class="p-2">${o.items.map(i => `${i.name} (${i.qty})`).join(', ')}</td>
                     <td class="p-2 font-semibold">${o.total} ETB</td>
-                    <td class="p-2"><span class="px-2 py-0.5 rounded text-xs font-semibold ${o.status === 'Completed' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}">${o.status}</span></td>
+                    <td class="p-2">
+                        <select onchange="updateOrderStatus(${o.id}, this.value)" class="border rounded p-1 text-xs">
+                            ${['Pending', 'Preparing', 'Completed', 'Cancelled'].map(status => `<option value="${status}" ${o.status === status ? 'selected' : ''}>${status}</option>`).join('')}
+                        </select>
+                    </td>
+                    <td class="p-2"><button onclick="deleteOrder(${o.id})" class="text-red-700 font-semibold">Delete</button></td>
                 </tr>
             `).join('');
         }
@@ -441,17 +483,77 @@
             e.preventDefault();
             const name = document.getElementById('item-name').value;
             const price = parseFloat(document.getElementById('item-price').value);
+            const imageFile = document.getElementById('item-image').files[0];
+            const image = imageFile ? await readImageFile(imageFile) : 'icon.svg';
 
-            await db.menu.add({ name, price });
+            await db.menu.add({ name, price, image });
             document.getElementById('add-menu-form').reset();
             alert('Menu item added successfully!');
+            renderAdminDashboard();
+        }
+
+        function readImageFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        async function editMenuItem(itemId) {
+            const item = await db.menu.get(itemId);
+            if (!item) return;
+            const name = prompt('Item name:', item.name);
+            const priceText = prompt('Price in Birr:', item.price);
+            const price = parseFloat(priceText);
+            if (!name || Number.isNaN(price) || price < 0) return;
+            await db.menu.update(itemId, { name: name.trim(), price });
+            renderAdminDashboard();
+        }
+
+        function changeMenuImage(itemId) {
+            const imageInput = document.createElement('input');
+            imageInput.type = 'file';
+            imageInput.accept = 'image/*';
+            imageInput.onchange = async () => {
+                if (!imageInput.files[0]) return;
+                await db.menu.update(itemId, { image: await readImageFile(imageInput.files[0]) });
+                renderAdminDashboard();
+                renderPublicMenu();
+                renderCashierMenu();
+            };
+            imageInput.click();
+        }
+
+        async function deleteMenuItem(itemId) {
+            if (!confirm('Delete this menu item? Existing orders will not be changed.')) return;
+            await db.menu.delete(itemId);
+            renderAdminDashboard();
+            if (!document.getElementById('sec-cashier').classList.contains('hidden')) renderCashierMenu();
+        }
+
+        async function updateOrderStatus(orderId, status) {
+            await db.orders.update(orderId, { status });
+            renderAdminDashboard();
+        }
+
+        async function deleteOrder(orderId) {
+            if (!confirm('Delete this order permanently?')) return;
+            await db.orders.delete(orderId);
+            renderAdminDashboard();
         }
 
         // Initial Load
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('./service-worker.js').catch(() => {});
         }
-        db.open().then(() => switchTab('home'));
+        db.open().then(async () => {
+            await db.menu.toCollection().modify(item => {
+                if (!item.image) item.image = sampleImages[item.name] || 'icon.svg';
+            });
+            switchTab('home');
+        });
     </script>
 </body>
 </html>

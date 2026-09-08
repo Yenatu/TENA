@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tena-cafe-v2';
+const CACHE_NAME = 'tena-cafe-v3';
 const APP_SHELL = ['./', './index.html', './manifest.json', './icon.svg'];
 
 self.addEventListener('install', (event) => {
