@@ -2,7 +2,7 @@
   "name": "Tena Breakfast House",
   "short_name": "Tena Cafe",
   "description": "Order and manage Tena Breakfast House sales.",
-  "start_url": "./tena.html",
+  "start_url": "/",
   "display": "standalone",
   "background_color": "#f1f5f9",
   "theme_color": "#b45309",
