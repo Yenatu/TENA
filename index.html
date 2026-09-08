@@ -27,6 +27,27 @@
         .mobile-nav { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.45) transparent; }
         .mobile-nav::-webkit-scrollbar { height: 6px; }
         .mobile-nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,.45); border-radius: 99px; }
+        .home-hero {
+            position: relative;
+            isolation: isolate;
+            min-height: 360px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            overflow: hidden;
+            color: #fff;
+            background: url('https://images.unsplash.com/photo-1498837167922-ddd27525d352?auto=format&fit=crop&w=1600&q=85') center / cover no-repeat !important;
+        }
+        .home-hero::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            z-index: -1;
+            background: linear-gradient(90deg, rgba(15,23,42,.84), rgba(15,23,42,.48), rgba(15,23,42,.68));
+        }
+        .home-hero h2,
+        .home-hero p { color: #fff !important; text-shadow: 0 2px 12px rgba(0,0,0,.72); }
+        .home-hero h2 { max-width: 780px; margin-left: auto; margin-right: auto; }
         @media (max-width: 767px) {
             header > div { padding: 1rem .75rem .5rem; gap: .75rem; }
             header h1 { font-size: 1.35rem; line-height: 1.2; text-align: center; }
@@ -66,7 +87,7 @@
 
         <!-- HOME SECTION -->
         <section id="sec-home" class="tab-content">
-            <div class="bg-white rounded-xl p-8 shadow-sm text-center my-6">
+            <div class="home-hero rounded-xl p-8 shadow-sm text-center my-6">
                 <h2 class="text-3xl font-extrabold text-amber-800 mb-2">እንኳን ወደ ጤና ቁርስ ቤት በደህና መጡ!</h2>
                 <p class="text-slate-600 mb-6">Fresh, healthy, and traditional breakfast served daily.</p>
                 <button onclick="switchTab('menu')" class="bg-amber-700 text-white px-6 py-3 rounded-lg font-semibold shadow hover:bg-amber-800 transition">View Menu</button>
