@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tena-cafe-v4';
+const CACHE_NAME = 'tena-cafe-v5';
 const APP_SHELL = ['./', './index.html', './manifest.json', './icon.svg'];
 
 self.addEventListener('install', (event) => {
@@ -21,19 +21,20 @@ self.addEventListener('fetch', (event) => {
 
     if (event.request.mode === 'navigate') {
         event.respondWith(
-            fetch(event.request).catch(() => caches.match('./index.html'))
+            fetch(event.request).then((networkResponse) => {
+                const responseCopy = networkResponse.clone();
+                caches.open(CACHE_NAME).then((cache) => cache.put('./index.html', responseCopy));
+                return networkResponse;
+            }).catch(() => caches.match('./index.html'))
         );
         return;
     }
 
     event.respondWith(
-        caches.match(event.request).then((cachedResponse) => {
-            if (cachedResponse) return cachedResponse;
-            return fetch(event.request).then((networkResponse) => {
-                const responseCopy = networkResponse.clone();
-                caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseCopy));
-                return networkResponse;
-            });
-        })
+        caches.match(event.request).then((cachedResponse) => cachedResponse || fetch(event.request).then((networkResponse) => {
+            const responseCopy = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseCopy));
+            return networkResponse;
+        }))
     );
 });
