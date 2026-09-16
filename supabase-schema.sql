@@ -16,7 +16,7 @@ create table if not exists public.menu (
 
 create table if not exists public.orders (
   id uuid primary key default gen_random_uuid(),
-  table_no text not null,
+    table_no text,
   items jsonb not null default '[]'::jsonb,
   total numeric(12,2) not null check (total >= 0),
   status text not null default 'Pending' check (status in ('Pending', 'Preparing', 'Completed', 'Cancelled')),
@@ -24,6 +24,22 @@ create table if not exists public.orders (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+insert into public.menu (name, price, image)
+select 'Bread', 15, 'icon.svg'
+where not exists (select 1 from public.menu where lower(name) = 'bread');
+
+insert into public.menu (name, price, image)
+select 'Injera', 20, 'icon.svg'
+where not exists (select 1 from public.menu where lower(name) = 'injera');
+
+  -- Cashiers can edit only their own order items. They cannot update status,
+  -- delete orders, or read another cashier's orders.
+  alter table public.orders alter column table_no drop not null;
+  drop policy if exists "Cashiers update own orders" on public.orders;
+  create policy "Cashiers update own orders" on public.orders for update to authenticated
+  using (cashier_id = auth.uid())
+  with check (cashier_id = auth.uid());
 
 alter table public.profiles enable row level security;
 alter table public.menu enable row level security;

@@ -72,15 +72,15 @@
             
             <!-- Navigation Links -->
             <nav class="mobile-nav w-full md:w-auto overflow-x-auto flex gap-2 text-sm font-medium pb-1">
-                <button onclick="switchTab('home')" class="px-3 py-1.5 rounded hover:bg-amber-800 transition">Home</button>
-                <button onclick="switchTab('menu')" class="px-3 py-1.5 rounded hover:bg-amber-800 transition">Menu</button>
+                <button data-nav-role="general" onclick="switchTab('home')" class="px-3 py-1.5 rounded hover:bg-amber-800 transition">Home</button>
+                <button data-nav-role="general" onclick="switchTab('menu')" class="px-3 py-1.5 rounded hover:bg-amber-800 transition">Menu</button>
                 <button onclick="switchTab('cashier')" class="px-3 py-1.5 rounded bg-amber-900 hover:bg-amber-800 transition">Cashier</button>
-                <button onclick="switchTab('admin')" class="px-3 py-1.5 rounded bg-red-800 hover:bg-red-700 transition">Admin</button>
-                <button onclick="switchTab('calculator')" class="px-3 py-1.5 rounded bg-amber-900 hover:bg-amber-800 transition">Calculator</button>
+                <button data-nav-role="admin" onclick="switchTab('admin')" class="px-3 py-1.5 rounded bg-red-800 hover:bg-red-700 transition">Admin</button>
+                <button data-nav-role="general" onclick="switchTab('calculator')" class="px-3 py-1.5 rounded bg-amber-900 hover:bg-amber-800 transition">Calculator</button>
                 <button id="install-app-button" onclick="installApp()" class="hidden px-3 py-1.5 rounded bg-emerald-600 hover:bg-emerald-700 transition">Install App</button>
                 <button id="theme-toggle" onclick="toggleTheme()" class="px-3 py-1.5 rounded bg-slate-900 hover:bg-slate-700 transition" aria-label="Switch theme">Night</button>
-                <button onclick="switchTab('about')" class="px-3 py-1.5 rounded hover:bg-amber-800 transition">About</button>
-                <button onclick="switchTab('contact')" class="px-3 py-1.5 rounded hover:bg-amber-800 transition">Contact</button>
+                <button data-nav-role="general" onclick="switchTab('about')" class="px-3 py-1.5 rounded hover:bg-amber-800 transition">About</button>
+                <button data-nav-role="general" onclick="switchTab('contact')" class="px-3 py-1.5 rounded hover:bg-amber-800 transition">Contact</button>
                 <button id="auth-button" onclick="openAuth()" class="px-3 py-1.5 rounded bg-white text-amber-800 hover:bg-amber-50 transition">Sign in</button>
             </nav>
         </div>
@@ -108,10 +108,18 @@
         <section id="sec-cashier" class="tab-content hidden">
             <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2 mb-4">
                 <div>
-                    <h2 class="text-2xl font-bold">Cashier: New Order</h2>
-                    <p class="text-slate-500">Add items, check the total, and save the order for the admin.</p>
+                    <h2 class="text-2xl font-bold">Cashier Orders</h2>
+                    <p class="text-slate-500">Create orders and add customer requests to existing orders.</p>
                 </div>
                 <button onclick="clearCart()" class="border border-slate-300 px-4 py-2 rounded-lg font-semibold hover:bg-white">Clear order</button>
+            </div>
+            <div class="flex flex-wrap gap-2 mb-4 text-sm">
+                <select id="cashier-period" onchange="renderCashierOrders()" class="border rounded p-2" aria-label="Cashier order period">
+                    <option value="all">All time</option><option value="7">Last 7 days</option><option value="30">This month</option><option value="365">This year</option>
+                </select>
+                <input id="cashier-date" type="date" onchange="renderCashierOrders()" class="border rounded p-2" aria-label="Cashier order date">
+                <input id="cashier-time-from" type="time" onchange="renderCashierOrders()" class="border rounded p-2" aria-label="Cashier time from">
+                <input id="cashier-time-to" type="time" onchange="renderCashierOrders()" class="border rounded p-2" aria-label="Cashier time to">
             </div>
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <!-- Select Menu Items -->
@@ -119,24 +127,21 @@
                     <h3 class="font-semibold text-lg mb-3">Select Items</h3>
                     <div id="cashier-menu-list" class="grid grid-cols-2 sm:grid-cols-3 gap-3"></div>
                 </div>
-                <!-- Cart & Table Input -->
+                <!-- Cart -->
                 <div class="bg-white p-4 rounded-xl shadow-sm flex flex-col justify-between">
                     <div>
                         <h3 class="font-semibold text-lg mb-3">Order Summary</h3>
-                        <div class="mb-4">
-                            <label class="block text-sm font-medium mb-1">Table / customer:</label>
-                            <input type="text" id="cashier-table" class="w-full border rounded p-2" placeholder="e.g. Table 5" maxlength="40">
-                        </div>
                         <ul id="w1-cart-items" class="divide-y text-sm mb-4"></ul>
                     </div>
                     <div>
-                        <div class="flex justify-between font-bold text-lg border-t pt-2 mb-4">
-                            <span>Total:</span>
-                            <span id="w1-cart-total">0 ETB</span>
-                        </div>
+                        <p id="cashier-editing-label" class="text-sm text-amber-700 mb-2 hidden">Editing an existing order</p>
                         <button onclick="saveCashierOrder()" class="w-full bg-emerald-600 text-white py-2.5 rounded-lg font-semibold hover:bg-emerald-700 transition">Save order</button>
                     </div>
                 </div>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm mt-6">
+                <h3 class="font-semibold text-lg mb-3">My orders</h3>
+                <div id="cashier-orders-list" class="space-y-2"></div>
             </div>
         </section>
 
@@ -346,6 +351,9 @@
             const button = document.getElementById('auth-button');
             button.textContent = currentUser ? `${currentRole}: Sign out` : 'Sign in';
             document.querySelector('button[onclick="switchTab(\'admin\')"]').classList.toggle('hidden', Boolean(supabaseClient && currentRole !== 'admin'));
+            document.querySelectorAll('[data-nav-role="general"]').forEach(item => {
+                item.classList.toggle('hidden', Boolean(supabaseClient && currentUser && currentRole === 'cashier'));
+            });
         }
 
         async function openAuth() {
@@ -369,6 +377,7 @@
         }
 
         let currentCart = [];
+        let editingOrderId = null;
         let deferredInstallPrompt;
         const sampleImages = {
             'Chechebsa (ጨጨብሳ)': 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=600&q=80',
@@ -436,7 +445,7 @@
             document.getElementById(`sec-${tabId}`).classList.remove('hidden');
 
             if (tabId === 'menu') renderPublicMenu();
-            if (tabId === 'cashier') renderCashierMenu();
+            if (tabId === 'cashier') { renderCashierMenu(); renderCashierOrders(); }
             if (tabId === 'admin') renderAdminDashboard();
         }
 
@@ -485,28 +494,31 @@
             const cartList = document.getElementById('w1-cart-items');
             let total = 0;
             cartList.innerHTML = currentCart.map((item, index) => {
-                const subtotal = item.price * item.qty;
-                total += subtotal;
                 return `
                     <li class="py-2 flex justify-between items-center">
                         <span>${item.name} x${item.qty}</span>
-                        <span class="font-medium">${subtotal} ETB</span>
+                        <span class="flex gap-2"><button onclick="changeCartQuantity(${index}, -1)" class="px-2 border rounded" aria-label="Remove one">-</button><button onclick="changeCartQuantity(${index}, 1)" class="px-2 border rounded" aria-label="Add one">+</button></span>
                     </li>
                 `;
             }).join('');
-            document.getElementById('w1-cart-total').innerText = `${total} ETB`;
+        }
+
+        function changeCartQuantity(index, amount) {
+            currentCart[index].qty += amount;
+            if (currentCart[index].qty <= 0) currentCart.splice(index, 1);
+            updateCartUI();
         }
 
         function clearCart() {
             currentCart = [];
-            document.getElementById('cashier-table').value = '';
+            editingOrderId = null;
+            document.getElementById('cashier-editing-label').classList.add('hidden');
             updateCartUI();
         }
 
         async function saveCashierOrder() {
-            const tableNo = document.getElementById('cashier-table').value.trim();
-            if (!tableNo || currentCart.length === 0) {
-                alert('Please add items and enter a table or customer name.');
+            if (currentCart.length === 0) {
+                alert('Please add at least one item.');
                 return;
             }
 
@@ -518,23 +530,67 @@
             const total = currentCart.reduce((sum, item) => sum + (item.price * item.qty), 0);
 
             const order = {
-                tableNo,
+                tableNo: '',
                 items: [...currentCart],
                 total: total,
                 status: 'Pending',
                 timestamp: new Date().toISOString()
             };
+            const wasEditing = Boolean(editingOrderId);
             if (supabaseClient) {
-                const { error } = await supabaseClient.from('orders').insert({
-                    table_no: tableNo, items: order.items, total, status: order.status, cashier_id: currentUser.id
-                });
+                const query = editingOrderId
+                    ? supabaseClient.from('orders').update({ items: order.items, total, updated_at: new Date().toISOString() }).eq('id', editingOrderId).eq('cashier_id', currentUser.id)
+                    : supabaseClient.from('orders').insert({ items: order.items, total, status: order.status, cashier_id: currentUser.id });
+                const { error } = await query;
                 if (error) { alert(error.message); return; }
             } else {
-                await db.orders.add(order);
+                if (editingOrderId) await db.orders.update(editingOrderId, order);
+                else await db.orders.add(order);
             }
 
             clearCart();
-            alert('Order saved. The admin can see it now.');
+            renderCashierOrders();
+            alert(wasEditing ? 'Order updated.' : 'Order saved.');
+        }
+
+        function orderMatchesFilters(order, prefix) {
+            const period = document.getElementById(`${prefix}-period`).value;
+            const exactDate = document.getElementById(`${prefix}-date`).value;
+            const fromTime = document.getElementById(`${prefix}-time-from`).value;
+            const toTime = document.getElementById(`${prefix}-time-to`).value;
+            const date = new Date(order.timestamp);
+            if (Number.isNaN(date.getTime())) return false;
+            if (period !== 'all' && date < new Date(Date.now() - Number(period) * 86400000)) return false;
+            if (exactDate && getOrderDate(order.timestamp) !== exactDate) return false;
+            const time = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+            return (!fromTime || time >= fromTime) && (!toTime || time <= toTime);
+        }
+
+        async function renderCashierOrders() {
+            const orders = (await onlineOrders()) || await db.orders.toArray();
+            const filteredOrders = orders.filter(order => orderMatchesFilters(order, 'cashier'));
+            const container = document.getElementById('cashier-orders-list');
+            container.innerHTML = filteredOrders.map(order => `
+                <div class="border rounded-lg p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                        <p class="font-semibold">Order #${order.id}</p>
+                        <p class="text-sm text-slate-600">${new Date(order.timestamp).toLocaleString()} · ${order.status}</p>
+                        <p class="text-sm">${order.items.map(item => `${item.name} x${item.qty}`).join(', ')}</p>
+                    </div>
+                    <button onclick="editCashierOrder('${order.id}')" class="border border-amber-600 text-amber-700 px-3 py-2 rounded-lg font-semibold">Edit order</button>
+                </div>
+            `).join('') || '<p class="text-sm text-slate-500">No orders found for this period.</p>';
+        }
+
+        async function editCashierOrder(orderId) {
+            const orders = (await onlineOrders()) || await db.orders.toArray();
+            const order = orders.find(item => String(item.id) === String(orderId));
+            if (!order) return;
+            editingOrderId = order.id;
+            currentCart = order.items.map(item => ({ ...item }));
+            document.getElementById('cashier-editing-label').classList.remove('hidden');
+            updateCartUI();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
         function calculateAmount() {
@@ -646,11 +702,11 @@
                     <td class="p-2">${o.items.map(i => `${i.name} (${i.qty})`).join(', ')}</td>
                     <td class="p-2 font-semibold">${o.total} ETB</td>
                     <td class="p-2">
-                        <select onchange="updateOrderStatus(${o.id}, this.value)" class="border rounded p-1 text-xs">
+                        <select onchange="updateOrderStatus('${o.id}', this.value)" class="border rounded p-1 text-xs">
                             ${['Pending', 'Preparing', 'Completed', 'Cancelled'].map(status => `<option value="${status}" ${o.status === status ? 'selected' : ''}>${status}</option>`).join('')}
                         </select>
                     </td>
-                    <td class="p-2"><button onclick="deleteOrder(${o.id})" class="text-red-700 font-semibold">Delete</button></td>
+                    <td class="p-2"><button onclick="deleteOrder('${o.id}')" class="text-red-700 font-semibold">Delete</button></td>
                 </tr>
             `).join('');
         }
@@ -741,7 +797,7 @@
                 if (!item.image) item.image = sampleImages[item.name] || 'icon.svg';
             });
             await refreshAuth();
-            switchTab('home');
+            switchTab(currentUser && currentRole === 'cashier' ? 'cashier' : 'home');
         });
     </script>
 </body>
