@@ -77,8 +77,8 @@
                 <button onclick="switchTab('cashier')" class="px-3 py-1.5 rounded bg-amber-900 hover:bg-amber-800 transition">Cashier</button>
                 <button data-nav-role="admin" onclick="switchTab('admin')" class="px-3 py-1.5 rounded bg-red-800 hover:bg-red-700 transition">Admin</button>
                 <button data-nav-role="general" onclick="switchTab('calculator')" class="px-3 py-1.5 rounded bg-amber-900 hover:bg-amber-800 transition">Calculator</button>
-                <button id="install-app-button" onclick="installApp()" class="hidden px-3 py-1.5 rounded bg-emerald-600 hover:bg-emerald-700 transition">Install App</button>
-                <button id="theme-toggle" onclick="toggleTheme()" class="px-3 py-1.5 rounded bg-slate-900 hover:bg-slate-700 transition" aria-label="Switch theme">Night</button>
+                <button data-nav-role="general" id="install-app-button" onclick="installApp()" class="hidden px-3 py-1.5 rounded bg-emerald-600 hover:bg-emerald-700 transition">Install App</button>
+                <button data-nav-role="general" id="theme-toggle" onclick="toggleTheme()" class="px-3 py-1.5 rounded bg-slate-900 hover:bg-slate-700 transition" aria-label="Switch theme">Night</button>
                 <button data-nav-role="general" onclick="switchTab('about')" class="px-3 py-1.5 rounded hover:bg-amber-800 transition">About</button>
                 <button data-nav-role="general" onclick="switchTab('contact')" class="px-3 py-1.5 rounded hover:bg-amber-800 transition">Contact</button>
                 <button id="auth-button" onclick="openAuth()" class="px-3 py-1.5 rounded bg-white text-amber-800 hover:bg-amber-50 transition">Sign in</button>
@@ -357,10 +357,11 @@
         }
 
         async function refreshAuth() {
-            if (!supabaseClient) return;
-            const { data } = await supabaseClient.auth.getUser();
-            currentUser = data.user;
-            if (currentUser) {
+            if (supabaseClient) {
+                const { data } = await supabaseClient.auth.getUser();
+                currentUser = data.user;
+            }
+            if (currentUser && supabaseClient) {
                 const profile = await supabaseClient.from('profiles').select('role').eq('id', currentUser.id).maybeSingle();
                 currentRole = profile.data?.role || 'cashier';
             }
@@ -369,6 +370,9 @@
             document.querySelector('button[onclick="switchTab(\'admin\')"]').classList.toggle('hidden', Boolean(supabaseClient && currentRole !== 'admin'));
             document.querySelectorAll('[data-nav-role="general"]').forEach(item => {
                 item.classList.toggle('hidden', Boolean(supabaseClient && currentUser && currentRole === 'cashier'));
+            });
+            document.querySelectorAll('.tab-content').forEach(section => {
+                section.classList.toggle('hidden', Boolean(currentUser && currentRole === 'cashier' && section.id !== 'sec-cashier'));
             });
         }
 
@@ -382,6 +386,7 @@
                 currentUser = null;
                 currentRole = 'cashier';
                 await refreshAuth();
+                switchTab('home');
                 return;
             }
             document.getElementById('auth-error').classList.add('hidden');
@@ -475,6 +480,9 @@
 
         // Tab Navigation
         function switchTab(tabId) {
+            if (currentUser && currentRole === 'cashier' && tabId !== 'cashier') {
+                tabId = 'cashier';
+            }
             if (tabId === 'admin' && supabaseClient && currentRole !== 'admin') {
                 alert('Admin access requires an admin account.');
                 return;
