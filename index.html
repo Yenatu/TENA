@@ -59,6 +59,9 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Dexie.js for Offline Database -->
     <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
+    <!-- Supabase is optional until supabase-config.js is added. -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js" onerror="this.remove()"></script>
 </head>
 <body class="bg-slate-100 min-h-screen text-slate-800 flex flex-col">
 
@@ -78,6 +81,7 @@
                 <button id="theme-toggle" onclick="toggleTheme()" class="px-3 py-1.5 rounded bg-slate-900 hover:bg-slate-700 transition" aria-label="Switch theme">Night</button>
                 <button onclick="switchTab('about')" class="px-3 py-1.5 rounded hover:bg-amber-800 transition">About</button>
                 <button onclick="switchTab('contact')" class="px-3 py-1.5 rounded hover:bg-amber-800 transition">Contact</button>
+                <button id="auth-button" onclick="openAuth()" class="px-3 py-1.5 rounded bg-white text-amber-800 hover:bg-amber-50 transition">Sign in</button>
             </nav>
         </div>
     </header>
@@ -169,7 +173,20 @@
 
         <!-- ADMIN SECTION -->
         <section id="sec-admin" class="tab-content hidden">
-            <h2 class="text-2xl font-bold mb-4">Admin Dashboard & Revenue Calculator</h2>
+            <div class="flex flex-col sm:flex-row justify-between sm:items-end gap-3 mb-4">
+                <div>
+                    <h2 class="text-2xl font-bold">Admin Dashboard & Revenue Calculator</h2>
+                    <p id="data-source-label" class="text-sm text-slate-500">Local device data</p>
+                </div>
+                <div class="grid grid-cols-2 sm:flex gap-2 text-sm">
+                    <select id="admin-period" onchange="renderAdminDashboard()" class="border rounded p-2" aria-label="Filter period">
+                        <option value="all">All time</option><option value="7">Last 7 days</option><option value="30">This month</option><option value="365">This year</option>
+                    </select>
+                    <input id="admin-date" type="date" onchange="renderAdminDashboard()" class="border rounded p-2" aria-label="Filter exact date">
+                    <input id="admin-time-from" type="time" onchange="renderAdminDashboard()" class="border rounded p-2" aria-label="Time from">
+                    <input id="admin-time-to" type="time" onchange="renderAdminDashboard()" class="border rounded p-2" aria-label="Time to">
+                </div>
+            </div>
             
             <!-- Revenue Cards -->
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
@@ -296,6 +313,61 @@
             orders: '++id, tableNo, items, total, status, timestamp'
         });
 
+        const hasSupabaseConfig = Boolean(window.TENA_SUPABASE_URL && window.TENA_SUPABASE_ANON_KEY && window.supabase);
+        const supabaseClient = hasSupabaseConfig
+            ? window.supabase.createClient(window.TENA_SUPABASE_URL, window.TENA_SUPABASE_ANON_KEY)
+            : null;
+        let currentUser = null;
+        let currentRole = 'cashier';
+
+        async function onlineMenu() {
+            if (!supabaseClient) return null;
+            const { data, error } = await supabaseClient.from('menu').select('*').order('id');
+            return error ? null : data.map(item => ({ ...item, id: item.id }));
+        }
+
+        async function onlineOrders() {
+            if (!supabaseClient || !currentUser) return null;
+            const query = currentRole === 'admin'
+                ? supabaseClient.from('orders').select('*').order('created_at', { ascending: false })
+                : supabaseClient.from('orders').select('*').eq('cashier_id', currentUser.id).order('created_at', { ascending: false });
+            const { data, error } = await query;
+            return error ? null : data.map(order => ({ ...order, tableNo: order.table_no, timestamp: order.created_at }));
+        }
+
+        async function refreshAuth() {
+            if (!supabaseClient) return;
+            const { data } = await supabaseClient.auth.getUser();
+            currentUser = data.user;
+            if (currentUser) {
+                const profile = await supabaseClient.from('profiles').select('role').eq('id', currentUser.id).maybeSingle();
+                currentRole = profile.data?.role || 'cashier';
+            }
+            const button = document.getElementById('auth-button');
+            button.textContent = currentUser ? `${currentRole}: Sign out` : 'Sign in';
+            document.querySelector('button[onclick="switchTab(\'admin\')"]').classList.toggle('hidden', Boolean(supabaseClient && currentRole !== 'admin'));
+        }
+
+        async function openAuth() {
+            if (!supabaseClient) {
+                alert('Online mode is not configured yet. Add supabase-config.js, or continue using this device offline.');
+                return;
+            }
+            if (currentUser) {
+                await supabaseClient.auth.signOut();
+                currentUser = null;
+                currentRole = 'cashier';
+                await refreshAuth();
+                return;
+            }
+            const email = prompt('Email:');
+            const password = prompt('Password:');
+            if (!email || !password) return;
+            const result = await supabaseClient.auth.signInWithPassword({ email, password });
+            if (result.error) alert(result.error.message);
+            else { await refreshAuth(); switchTab('cashier'); }
+        }
+
         let currentCart = [];
         let deferredInstallPrompt;
         const sampleImages = {
@@ -356,6 +428,10 @@
 
         // Tab Navigation
         function switchTab(tabId) {
+            if (tabId === 'admin' && supabaseClient && currentRole !== 'admin') {
+                alert('Admin access requires an admin account.');
+                return;
+            }
             document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
             document.getElementById(`sec-${tabId}`).classList.remove('hidden');
 
@@ -366,7 +442,7 @@
 
         // --- PUBLIC MENU ---
         async function renderPublicMenu() {
-            const items = await db.menu.toArray();
+            const items = (await onlineMenu()) || await db.menu.toArray();
             const container = document.getElementById('menu-list');
             container.innerHTML = items.map(item => `
                 <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
@@ -381,7 +457,7 @@
 
         // --- CASHIER LOGIC ---
         async function renderCashierMenu() {
-            const items = await db.menu.toArray();
+            const items = (await onlineMenu()) || await db.menu.toArray();
             const container = document.getElementById('cashier-menu-list');
             container.innerHTML = items.map(item => `
                 <button onclick="addToCart('${item.name}', ${item.price})" class="bg-slate-50 border rounded-lg text-left hover:border-amber-600 transition overflow-hidden">
@@ -434,15 +510,28 @@
                 return;
             }
 
+            if (supabaseClient && !currentUser) {
+                alert('Please sign in before saving an online order.');
+                return;
+            }
+
             const total = currentCart.reduce((sum, item) => sum + (item.price * item.qty), 0);
-            
-            await db.orders.add({
+
+            const order = {
                 tableNo,
                 items: [...currentCart],
                 total: total,
                 status: 'Pending',
                 timestamp: new Date().toISOString()
-            });
+            };
+            if (supabaseClient) {
+                const { error } = await supabaseClient.from('orders').insert({
+                    table_no: tableNo, items: order.items, total, status: order.status, cashier_id: currentUser.id
+                });
+                if (error) { alert(error.message); return; }
+            } else {
+                await db.orders.add(order);
+            }
 
             clearCart();
             alert('Order saved. The admin can see it now.');
@@ -483,14 +572,30 @@
 
         // --- ADMIN DASHBOARD LOGIC ---
         async function renderAdminDashboard() {
-            const allOrders = await db.orders.toArray();
-            const completedOrders = allOrders.filter(o => o.status === 'Completed');
+            const allOrders = (await onlineOrders()) || await db.orders.toArray();
+            const period = document.getElementById('admin-period').value;
+            const exactDate = document.getElementById('admin-date').value;
+            const fromTime = document.getElementById('admin-time-from').value;
+            const toTime = document.getElementById('admin-time-to').value;
+            const now = new Date();
+            const filteredOrders = allOrders.filter(order => {
+                const date = new Date(order.timestamp);
+                if (Number.isNaN(date.getTime())) return false;
+                if (period !== 'all' && date < new Date(now.getTime() - Number(period) * 86400000)) return false;
+                if (exactDate && getOrderDate(order.timestamp) !== exactDate) return false;
+                const time = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+                if (fromTime && time < fromTime) return false;
+                if (toTime && time > toTime) return false;
+                return true;
+            });
+            document.getElementById('data-source-label').innerText = supabaseClient ? 'Live Supabase data' : 'Local device data';
+            const completedOrders = filteredOrders.filter(o => o.status === 'Completed');
             
             // Calculate Total Revenue automatically
             const totalRevenue = completedOrders.reduce((sum, o) => sum + o.total, 0);
 
             const completedCount = completedOrders.length;
-            const activeCount = allOrders.length - completedCount;
+            const activeCount = filteredOrders.length - completedCount;
 
             document.getElementById('admin-total-revenue').innerText = `${totalRevenue} ETB`;
             document.getElementById('admin-completed-count').innerText = completedCount;
@@ -534,7 +639,7 @@
 
             // Render Orders Table
             const tableBody = document.getElementById('admin-orders-table');
-            tableBody.innerHTML = allOrders.sort((a, b) => b.id - a.id).map(o => `
+            tableBody.innerHTML = filteredOrders.map(o => `
                 <tr>
                     <td class="p-2">#${o.id}</td>
                     <td class="p-2">${o.tableNo}</td>
@@ -615,13 +720,15 @@
         }
 
         async function updateOrderStatus(orderId, status) {
-            await db.orders.update(orderId, { status });
+            if (supabaseClient) await supabaseClient.from('orders').update({ status, updated_at: new Date().toISOString() }).eq('id', orderId);
+            else await db.orders.update(orderId, { status });
             renderAdminDashboard();
         }
 
         async function deleteOrder(orderId) {
             if (!confirm('Delete this order permanently?')) return;
-            await db.orders.delete(orderId);
+            if (supabaseClient) await supabaseClient.from('orders').delete().eq('id', orderId);
+            else await db.orders.delete(orderId);
             renderAdminDashboard();
         }
 
@@ -633,6 +740,7 @@
             await db.menu.toCollection().modify(item => {
                 if (!item.image) item.image = sampleImages[item.name] || 'icon.svg';
             });
+            await refreshAuth();
             switchTab('home');
         });
     </script>
