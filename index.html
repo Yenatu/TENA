@@ -115,7 +115,7 @@
             </div>
             <div class="flex flex-wrap gap-2 mb-4 text-sm">
                 <select id="cashier-period" onchange="renderCashierOrders()" class="border rounded p-2" aria-label="Cashier order period">
-                    <option value="all">All time</option><option value="7">Last 7 days</option><option value="30">This month</option><option value="365">This year</option>
+                    <option value="all">All time</option><option value="today">Today</option><option value="7">Last 7 days</option><option value="30">This month</option><option value="365">This year</option>
                 </select>
                 <input id="cashier-date" type="date" onchange="renderCashierOrders()" class="border rounded p-2" aria-label="Cashier order date">
                 <input id="cashier-time-from" type="time" onchange="renderCashierOrders()" class="border rounded p-2" aria-label="Cashier time from">
@@ -185,7 +185,7 @@
                 </div>
                 <div class="grid grid-cols-2 sm:flex gap-2 text-sm">
                     <select id="admin-period" onchange="renderAdminDashboard()" class="border rounded p-2" aria-label="Filter period">
-                        <option value="all">All time</option><option value="7">Last 7 days</option><option value="30">This month</option><option value="365">This year</option>
+                        <option value="all">All time</option><option value="today">Today</option><option value="7">Last 7 days</option><option value="30">This month</option><option value="365">This year</option>
                     </select>
                     <input id="admin-date" type="date" onchange="renderAdminDashboard()" class="border rounded p-2" aria-label="Filter exact date">
                     <input id="admin-time-from" type="time" onchange="renderAdminDashboard()" class="border rounded p-2" aria-label="Time from">
@@ -276,6 +276,7 @@
                         <thead class="bg-slate-100 border-b">
                             <tr>
                                 <th class="p-2">Order ID</th>
+                                <th class="p-2">Date / time</th>
                                 <th class="p-2">Table</th>
                                 <th class="p-2">Items</th>
                                 <th class="p-2">Total (ETB)</th>
@@ -560,7 +561,8 @@
             const toTime = document.getElementById(`${prefix}-time-to`).value;
             const date = new Date(order.timestamp);
             if (Number.isNaN(date.getTime())) return false;
-            if (period !== 'all' && date < new Date(Date.now() - Number(period) * 86400000)) return false;
+            if (period === 'today' && getOrderDate(order.timestamp) !== getOrderDate(new Date().toISOString())) return false;
+            if (period !== 'all' && period !== 'today' && date < new Date(Date.now() - Number(period) * 86400000)) return false;
             if (exactDate && getOrderDate(order.timestamp) !== exactDate) return false;
             const time = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
             return (!fromTime || time >= fromTime) && (!toTime || time <= toTime);
@@ -574,7 +576,7 @@
                 <div class="border rounded-lg p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div>
                         <p class="font-semibold">Order #${order.id}</p>
-                        <p class="text-sm text-slate-600">${new Date(order.timestamp).toLocaleString()} · ${order.status}</p>
+                        <p class="text-sm text-slate-600">${formatOrderDateTime(order.timestamp)} · ${order.status}</p>
                         <p class="text-sm">${order.items.map(item => `${item.name} x${item.qty}`).join(', ')}</p>
                     </div>
                     <button onclick="editCashierOrder('${order.id}')" class="border border-amber-600 text-amber-700 px-3 py-2 rounded-lg font-semibold">Edit order</button>
@@ -637,7 +639,8 @@
             const filteredOrders = allOrders.filter(order => {
                 const date = new Date(order.timestamp);
                 if (Number.isNaN(date.getTime())) return false;
-                if (period !== 'all' && date < new Date(now.getTime() - Number(period) * 86400000)) return false;
+                if (period === 'today' && getOrderDate(order.timestamp) !== getOrderDate(now.toISOString())) return false;
+                if (period !== 'all' && period !== 'today' && date < new Date(now.getTime() - Number(period) * 86400000)) return false;
                 if (exactDate && getOrderDate(order.timestamp) !== exactDate) return false;
                 const time = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
                 if (fromTime && time < fromTime) return false;
@@ -698,6 +701,7 @@
             tableBody.innerHTML = filteredOrders.map(o => `
                 <tr>
                     <td class="p-2">#${o.id}</td>
+                    <td class="p-2 whitespace-nowrap">${formatOrderDateTime(o.timestamp)}</td>
                     <td class="p-2">${o.tableNo}</td>
                     <td class="p-2">${o.items.map(i => `${i.name} (${i.qty})`).join(', ')}</td>
                     <td class="p-2 font-semibold">${o.total} ETB</td>
@@ -719,6 +723,11 @@
             const month = String(parsedDate.getMonth() + 1).padStart(2, '0');
             const day = String(parsedDate.getDate()).padStart(2, '0');
             return `${year}-${month}-${day}`;
+        }
+
+        function formatOrderDateTime(timestamp) {
+            const parsedDate = new Date(timestamp);
+            return Number.isNaN(parsedDate.getTime()) ? 'Unknown time' : parsedDate.toLocaleString();
         }
 
         async function addNewMenuItem(e) {
