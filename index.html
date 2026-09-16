@@ -329,7 +329,7 @@
         async function onlineMenu() {
             if (!supabaseClient) return null;
             const { data, error } = await supabaseClient.from('menu').select('*').order('id');
-            return error ? null : data.map(item => ({ ...item, id: item.id }));
+            return error || !data?.length ? null : data.map(item => ({ ...item, id: item.id }));
         }
 
         async function onlineOrders() {
