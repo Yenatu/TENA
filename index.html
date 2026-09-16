@@ -474,7 +474,6 @@
                     <img src="${item.image || 'icon.svg'}" alt="${item.name}" class="w-full h-24 object-cover">
                     <div class="p-3">
                     <p class="font-semibold text-sm">${item.name}</p>
-                    <p class="text-xs text-amber-700 font-medium">${item.price} Birr</p>
                     </div>
                 </button>
             `).join('');
@@ -541,7 +540,7 @@
             if (supabaseClient) {
                 const query = editingOrderId
                     ? supabaseClient.from('orders').update({ items: order.items, total, updated_at: new Date().toISOString() }).eq('id', editingOrderId).eq('cashier_id', currentUser.id)
-                    : supabaseClient.from('orders').insert({ items: order.items, total, status: order.status, cashier_id: currentUser.id });
+                    : supabaseClient.from('orders').insert({ table_no: '', items: order.items, total, status: order.status, cashier_id: currentUser.id });
                 const { error } = await query;
                 if (error) { alert(error.message); return; }
             } else {
